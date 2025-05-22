@@ -14,9 +14,11 @@ import Data.Text.Encoding qualified as Text
 import Data.Time.Format.ISO8601 (iso8601Show)
 import Effectful.Wreq
 import Effectful.Wreq qualified as Wreq
+import Network.HTTP.Client (ManagerSettings (managerResponseTimeout), responseTimeoutMicro)
+import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (status200, status201)
-import Session (Session (..))
 import Prelude
+import Session (Session (..))
 
 data Voucher = Voucher
     { id :: Int
@@ -46,14 +48,30 @@ genVoucherCode PretixConfig{..} githubId =
         . fromText
         $ voucherCodeSalt <> ishow githubId
 
-createNewVoucher :: (Wreq :> es, Time :> es) => PretixConfig -> Session -> Eff es (Maybe Voucher)
+wreqOpts :: Text -> Wreq.Options
+wreqOpts apiToken =
+    Wreq.defaults
+        & Wreq.auth
+        ?~ Wreq.oauth2Token (Text.encodeUtf8 apiToken)
+        & Wreq.manager
+        .~ Left
+            ( tlsManagerSettings
+                { managerResponseTimeout = responseTimeoutMicro 15_000_000
+                }
+            )
+
+createNewVoucher :: (Log :> es, Wreq :> es, Time :> es) => PretixConfig -> Session -> Eff es (Maybe Voucher)
 createNewVoucher pretixConfig@PretixConfig{..} Session{..} = do
     time <- currentTime
-    Wreq.postWith opts url (payload time) >>= \case
+    Wreq.postWith (wreqOpts apiToken) url (payload time) >>= \case
         response
-            | response ^. Wreq.responseStatus == status201 ->
-                pure $ Aeson.decode (response ^. Wreq.responseBody)
-        _ -> pure Nothing
+            | response ^. Wreq.responseStatus == status201
+            , Just voucher <- Aeson.decode $ response ^. Wreq.responseBody -> do
+                logMessage LogTrace "Created new voucher" $ object ["id" .= voucher.id, "code" .= voucher.code]
+                pure . Just $ voucher
+        response -> do
+            logMessage LogAttention "Failed to create voucher" $ object ["response" .= show response]
+            pure Nothing
   where
     voucherCode = genVoucherCode pretixConfig githubId
     payload time =
@@ -83,14 +101,18 @@ createNewVoucher pretixConfig@PretixConfig{..} Session{..} = do
             , "vouchers"
             , ""
             ]
-    opts = Wreq.defaults & Wreq.auth ?~ Wreq.oauth2Token (Text.encodeUtf8 apiToken)
 
-getExistingVoucher :: (Wreq :> es) => PretixConfig -> Int -> Eff es (Maybe Voucher)
+getExistingVoucher :: (Log :> es, Wreq :> es) => PretixConfig -> Int -> Eff es (Maybe Voucher)
 getExistingVoucher PretixConfig{..} id' =
-    Wreq.getWith opts url >>= \case
+    Wreq.getWith (wreqOpts apiToken) url >>= \case
         response
-            | response ^. Wreq.responseStatus == status200 -> pure $ Aeson.decode (response ^. Wreq.responseBody)
-        _ -> pure Nothing
+            | response ^. Wreq.responseStatus == status200
+            , Just voucher <- Aeson.decode (response ^. Wreq.responseBody) -> do
+                logMessage LogTrace "Fetched voucher" $ object ["id" .= voucher.id]
+                pure . Just $ voucher
+        response -> do
+            logMessage LogAttention "Failed to fetch voucher" $ object ["id" .= id', "response" .= show response]
+            pure Nothing
   where
     url =
         fromText . Text.intercalate "/" $
@@ -102,20 +124,22 @@ getExistingVoucher PretixConfig{..} id' =
             , ishow id'
             , ""
             ]
-    opts = Wreq.defaults & Wreq.auth ?~ Wreq.oauth2Token (Text.encodeUtf8 apiToken)
 
 newtype Results a = Results {results :: [a]}
     deriving stock (Generic)
     deriving anyclass (FromJSON)
 
-getAllVouchers :: (Wreq :> es) => PretixConfig -> Eff es [Voucher]
+getAllVouchers :: (Log :> es, Wreq :> es) => PretixConfig -> Eff es [Voucher]
 getAllVouchers PretixConfig{..} =
-    Wreq.getWith opts url >>= \case
+    Wreq.getWith (wreqOpts apiToken) url >>= \case
         response
             | response ^. Wreq.responseStatus == status200
-            , Just vouchers <- Aeson.decode @(Results Voucher) $ response ^. Wreq.responseBody ->
+            , Just vouchers <- Aeson.decode @(Results Voucher) $ response ^. Wreq.responseBody -> do
+                logMessage LogTrace "Fetched all vouchers" $ object ["length" .= length vouchers.results]
                 pure vouchers.results
-        _ -> pure []
+        response -> do
+            logMessage LogAttention "Failed to fetch all voucher" $ object ["response" .= show response]
+            pure []
   where
     url =
         fromText . Text.intercalate "/" $
@@ -126,4 +150,3 @@ getAllVouchers PretixConfig{..} =
             , "vouchers"
             , ""
             ]
-    opts = Wreq.defaults & Wreq.auth ?~ Wreq.oauth2Token (Text.encodeUtf8 apiToken)

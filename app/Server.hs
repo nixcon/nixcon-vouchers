@@ -64,6 +64,7 @@ server
        , State Contributors :> es
        , Wreq :> es
        , Time :> es
+       , Log :> es
        )
     => Routes (AsServerT (Eff es))
 server =
@@ -83,6 +84,7 @@ anonRoutesServer
        , State Contributors :> es
        , Wreq :> es
        , Time :> es
+       , Log :> es
        )
     => AnonRoutes (AsServerT (Eff es))
 anonRoutesServer =
@@ -167,6 +169,7 @@ getContributorWithVoucher
        , State Contributors :> es
        , Wreq :> es
        , Time :> es
+       , Log :> es
        )
     => Session
     -> Eff es (Maybe Contributor)
