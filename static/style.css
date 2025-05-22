@@ -54,14 +54,21 @@ main {
     }
 }
 
-.redeem.button {
+.purchase.button, .redeem.button {
     background-color: #964AC0;
     color: #FFF;
     &::before {
         content: "";
-        background-image: url(ticket.svg);
         filter: brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(7500%) hue-rotate(4deg) brightness(107%) contrast(110%);
     }
+}
+
+.purchase.button::before {
+    background-image: url(cart.svg);
+}
+
+.redeem.button::before {
+    background-image: url(ticket.svg);
 }
 
 html {

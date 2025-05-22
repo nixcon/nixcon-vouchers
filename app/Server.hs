@@ -100,18 +100,12 @@ anonRoutesServer =
                         Html.body . Html.main $ do
                             Html.h1 "Hello stranger"
                             Html.p "Click here to determine whether you are eligible for a voucher:"
-                            Html.a
-                                ! Html.Attributes.class_ "github-login button"
-                                ! Html.Attributes.href (Html.textValue url)
-                                $ "Log in with GitHub"
+                            button "github-login" url "Log in with GitHub"
                 Just session -> do
                     Env{pretixConfig = PretixConfig{storeUrl, event}} <- ask
                     contributor <- getContributorWithVoucher session
                     let eventUrl = Text.intercalate "/" [storeUrl, event]
-                    let purchaseTicketButton =
-                            Html.a
-                                ! Html.Attributes.class_ "back button"
-                                ! Html.Attributes.href (fromText eventUrl)
+                    let purchaseTicketButton = button "purchase" eventUrl
                     pure . html $ do
                         htmlHead
                         Html.body . Html.main $ do
@@ -132,13 +126,14 @@ anonRoutesServer =
                                                     Html.span "Your voucher code is: "
                                                     Html.code $ fromText code
                                                 let url = Text.intercalate "/" [eventUrl, "redeem?voucher=" <> code]
-                                                Html.a
-                                                    ! Html.Attributes.class_ "redeem button"
-                                                    ! Html.Attributes.href (fromText url)
-                                                    $ "Redeem voucher"
+                                                button "redeem" url "Redeem voucher"
         , static = serveDirectoryEmbedded $(embedDir =<< makeRelativeToProject "static")
         }
   where
+    button className href =
+        Html.a
+            ! Html.Attributes.class_ (className <> " button")
+            ! Html.Attributes.href (fromText href)
     htmlHead =
         Html.head do
             Html.meta ! Html.Attributes.charset "utf-8"
