@@ -52,6 +52,9 @@ parseConfig = do
             long "session-key"
                 <> metavar "KEY"
                 <> help "The key used to encrypt session cookies. Base64-encoded and exactly 96 bytes long."
+    minimumCommits <-
+        optional . option auto $
+            long "commits" <> help "The minimal number of commits a contributor must have."
     pure Config{..}
   where
     logLevels :: [String]
