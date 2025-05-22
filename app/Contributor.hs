@@ -21,9 +21,10 @@ data Contributor = Contributor
 
 type Contributors = IntMap Contributor
 
-contributorsFromCsv :: Contributors
-contributorsFromCsv =
+contributorsFromCsv :: Int -> Contributors
+contributorsFromCsv minimumCommits =
     IntMap.fromList
+        . filter (\(_, Contributor{commits}) -> commits >= minimumCommits)
         . mapMaybe parseRow
         . Text.lines
         . Text.decodeUtf8

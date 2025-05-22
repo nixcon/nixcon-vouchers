@@ -46,6 +46,7 @@ data Config m = Config
     , githubConfig :: m GithubConfig
     , pretixConfig :: m PretixConfig
     , sessionKey :: m Key
+    , minimumCommits :: m Int
     }
     deriving stock (Generic)
 
@@ -112,6 +113,7 @@ maybeConfig config = do
     githubConfig <- pure <$> config.githubConfig
     pretixConfig <- pure <$> config.pretixConfig
     sessionKey <- pure <$> config.sessionKey
+    minimumCommits <- pure <$> config.minimumCommits
     pure Config{..}
 
 overrideConfig :: Config Maybe -> Config Identity -> Config Identity
@@ -122,4 +124,5 @@ overrideConfig new Config{..} =
         , githubConfig = maybe githubConfig pure new.githubConfig
         , pretixConfig = maybe pretixConfig pure new.pretixConfig
         , sessionKey = maybe sessionKey pure new.sessionKey
+        , minimumCommits = maybe minimumCommits pure new.minimumCommits
         }

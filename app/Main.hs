@@ -96,6 +96,7 @@ main = do
         , githubConfig = Identity GithubConfig{..}
         , pretixConfig = Identity pretixConfig
         , sessionKey = Identity sessionKey
+        , minimumCommits = Identity minimumCommits
         } <- withStdOutLogger \logger -> runEff . runLog "nixcon-vouchers" logger LogInfo $ getConfig
     let githubSettings =
             mkGithubSettings
@@ -126,7 +127,7 @@ main = do
     withStdOutLogger \logger -> runEff
         . runLog "nixcon-vouchers" logger logLevel
         . runReader initialEnv
-        . evalState contributorsFromCsv
+        . evalState (contributorsFromCsv minimumCommits)
         . runTime
         . runWreq
         $ do
