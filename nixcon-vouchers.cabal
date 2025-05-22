@@ -84,6 +84,8 @@ executable nixcon-vouchers
         extra,
         file-embed,
         hoauth2,
+        http-client,
+        http-client-tls,
         http-types,
         lens,
         log-base,

@@ -96,7 +96,7 @@ main = do
         , githubConfig = Identity GithubConfig{..}
         , pretixConfig = Identity pretixConfig
         , sessionKey = Identity sessionKey
-        } <- withStdOutLogger \logger -> runEff . runLog "hello" logger LogInfo $ getConfig
+        } <- withStdOutLogger \logger -> runEff . runLog "nixcon-vouchers" logger LogInfo $ getConfig
     let githubSettings =
             mkGithubSettings
                 sessionKey
@@ -124,7 +124,7 @@ main = do
                 , pretixConfig
                 }
     withStdOutLogger \logger -> runEff
-        . runLog "hello" logger logLevel
+        . runLog "nixcon-vouchers" logger logLevel
         . runReader initialEnv
         . evalState contributorsFromCsv
         . runTime
@@ -136,7 +136,6 @@ main = do
                     voucher = HashMap.lookup code voucherByCode
                  in modify $ IntMap.insert contributor.githubId contributor{voucher}
 
-            loggerEnv <- getLoggerEnv
             let settings :: Settings
                 settings = setHost "*6" . setPort port $ defaultSettings
                 context =
@@ -144,6 +143,7 @@ main = do
                         :. optionalSessionHandler sessionKey
                         :. oauth2AuthHandler githubSettings (MkHandler . runEff . runErrorNoCallStack)
                         :. EmptyContext
-            logMessage LogTrace "Debug logging enabled" $ object []
             logMessage LogInfo ("Server listening on http://localhost:" <> ishow port) $ object []
-            runWarpServerSettingsContext settings context server (logMiddleware loggerEnv)
+            loggerEnv <- getLoggerEnv
+            let middleware = logMiddleware loggerEnv
+            runWarpServerSettingsContext settings context server middleware
