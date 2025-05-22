@@ -14,7 +14,7 @@ import Data.Text.Encoding qualified as Text
 import Data.Time.Format.ISO8601 (iso8601Show)
 import Effectful.Wreq
 import Effectful.Wreq qualified as Wreq
-import Network.HTTP.Client (ManagerSettings (managerResponseTimeout), responseTimeoutMicro)
+import Network.HTTP.Client (ManagerSettings (managerResponseTimeout), responseTimeoutNone)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (status200, status201)
 import Prelude
@@ -56,7 +56,7 @@ wreqOpts apiToken =
         & Wreq.manager
         .~ Left
             ( tlsManagerSettings
-                { managerResponseTimeout = responseTimeoutMicro 15_000_000
+                { managerResponseTimeout = responseTimeoutNone
                 }
             )
 
