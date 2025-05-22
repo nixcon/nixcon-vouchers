@@ -1,0 +1,9 @@
+query {
+    organization(login:$LOGIN) {
+    repositories(first:$COUNT, after:$AFTER) {
+      nodes {
+        name
+      }
+    }
+  }
+}

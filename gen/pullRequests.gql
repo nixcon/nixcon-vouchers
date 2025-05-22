@@ -1,0 +1,24 @@
+query {
+  repository(owner: $OWNER, name: $NAME) {
+    pullRequests(last:$COUNT, before:$BEFORE, states:MERGED) {
+      nodes {
+        number
+        createdAt
+        mergedAt
+        author {
+          ... on User {
+            id
+            login
+          }
+        }
+        commits {
+          totalCount
+        }
+      }
+      pageInfo {
+        startCursor
+        endCursor
+      }
+    }
+  }
+}

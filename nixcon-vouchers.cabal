@@ -1,0 +1,135 @@
+cabal-version:      3.0
+name:               nixcon-vouchers
+version:            0.0.1
+synopsis:           NixCon contributor vouchers
+homepage:           https://vouchers.nixcon.org
+license:            Apache-2.0
+license-file:       LICENCE.md
+author:             ners
+maintainer:         ners@gmx.ch
+category:           System
+build-type:         Simple
+
+common common
+    default-language: GHC2021
+    ghc-options:
+        -Weverything
+        -Wno-all-missed-specialisations
+        -Wno-missing-export-lists
+        -Wno-missing-import-lists
+        -Wno-missing-safe-haskell-mode
+        -Wno-unsafe
+        -Wno-missing-kind-signatures
+    if impl(ghc >= 9.8)
+        ghc-options:
+            -Wno-missing-poly-kind-signatures
+            -Wno-missing-role-annotations
+    build-depends:
+        base,
+    default-extensions:
+        ApplicativeDo
+        Arrows
+        BlockArguments
+        DataKinds
+        DefaultSignatures
+        DeriveAnyClass
+        DeriveGeneric
+        DerivingStrategies
+        DerivingVia
+        ExplicitNamespaces
+        LambdaCase
+        NoFieldSelectors
+        NoImplicitPrelude
+        OverloadedLabels
+        OverloadedRecordDot
+        OverloadedStrings
+        PackageImports
+        RecordWildCards
+        RecursiveDo
+        StrictData
+        TypeFamilies
+        ViewPatterns
+
+executable nixcon-vouchers
+    import:           common
+    hs-source-dirs:   app
+    ghc-options:      -threaded
+    main-is:          Main.hs
+    other-modules:
+        API,
+        CliArgs,
+        Config,
+        Contributor,
+        Log,
+        OAuth2,
+        Prelude,
+        Pretix,
+        Server,
+        Session,
+    build-depends:
+        aeson,
+        base64,
+        blaze-html,
+        bytestring,
+        case-insensitive,
+        cereal,
+        clientsession,
+        containers,
+        cookie,
+        crypton,
+        dhall,
+        directory,
+        effectful,
+        either,
+        extra,
+        file-embed,
+        hoauth2,
+        http-types,
+        lens,
+        log-base,
+        log-effectful,
+        log-effectful,
+        memory,
+        monad-time-effectful,
+        mtl,
+        optparse-applicative,
+        prettyprinter,
+        servant-blaze,
+        servant-effectful,
+        servant-oauth2,
+        servant-server,
+        text,
+        time,
+        transformers,
+        unordered-containers,
+        wai,
+        wai-middleware-auth,
+        warp,
+        wreq-effectful,
+
+executable gen
+    import:           common
+    hs-source-dirs:   gen
+    ghc-options:      -threaded
+    main-is:          Main.hs
+    other-modules:
+        Contributor,
+        PullRequests,
+        Query,
+        Repositories,
+        Response,
+    build-depends:
+        aeson,
+        base64,
+        bytestring,
+        containers,
+        extra,
+        file-embed,
+        hashable,
+        http-types,
+        lens,
+        pretty-simple,
+        text,
+        time,
+        unordered-containers,
+        wreq,
