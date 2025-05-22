@@ -1,0 +1,139 @@
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap");
+
+:root {
+  --text-primary: #5277c3;
+  --text-content: #696969;
+  --background-primary: #edf3ff;
+  --background-secondary: #ffffff;
+  --background-contrast: #fffaed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  margin: 0;
+  min-height: 100vh;
+  font-size: 20px;
+  font-family: "Open Sans", sans-serif;
+  font-weight: 400;
+  color: var(--text-content);
+  @media only screen and (max-width: 500px) {
+    font-size: 16px;
+  }
+}
+
+body {
+  background: var(--background-primary);
+  //background: linear-gradient(
+  //  0deg,
+  //  var(--background-primary) 0%,
+  //  var(--background-secondary) 100%
+  //);
+}
+
+#attendees {
+  padding: 1em;
+  columns: 20em;
+  min-height: 100vh;
+}
+
+.attendee {
+  background: var(--background-secondary);
+  border-radius: 0.5em;
+  padding: 1em;
+  break-inside: avoid;
+  display: flex;
+  flex-direction: column;
+  gap: 1em;
+  margin-bottom: 1em;
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  gap: 0.5em;
+  align-items: center;
+
+  .avatar {
+    width: 3em;
+    height: 3em;
+    border-radius: 0.5em;
+    align-self: flex-start;
+  }
+
+  .name {
+    font-weight: 700;
+  }
+
+  .name.organiser::after {
+    content: 'organiser';
+    font-size: 70%;
+    font-weight: 500;
+    color: white;
+    background: #77C352;
+    padding: 0 0.7em 0.1em 1.6em;
+    line-height: 1.5em;
+    border-radius: 1em;
+    position: relative;
+    top: -0.1em;
+    margin-left: 0.3em;
+    background-image: url(shield-check.svg);
+    background-repeat: no-repeat;
+    background-size: 1em 1em;
+    background-position: 0.4em 50%;
+  }
+
+  .socials {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2em;
+    li, a {
+      color: var(--text-primary);
+    }
+    li {
+      font-size: 80%;
+      display: inline-block;
+      margin-right: 0.3em;
+      &::before {
+        display: inline-block;
+        content: '';
+        width: 1.2em;
+        height: 1.2em;
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: 50%;
+        position: relative;
+        top: 0.3em;
+        margin-right: 0.1em;
+      }
+      &.github::before {
+        background-image: url(github.svg);
+      }
+      &.matrix::before {
+        background-image: url(matrix.svg);
+      }
+      &.mastodon::before {
+        background-image: url(mastodon.svg);
+      }
+    }
+  }
+}
+
+.interests {
+  font-size: 80%;
+  li {
+    display: inline-block;
+    color: white;
+    background: var(--text-primary);
+    padding: 0.3em 0.5em;
+    border-radius: 0.3em;
+    font-weight: 500;
+  }
+}
+
+.description {
+  line-height: 1.5em;
+}

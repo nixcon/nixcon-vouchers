@@ -1,0 +1,63 @@
+{
+  "nodes": {
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1747744144,
+        "narHash": "sha256-W7lqHp0qZiENCDwUZ5EX/lNhxjMdNapFnbErcbnP11Q=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "2795c506fe8fb7b03c36ccb51f75b6df0ab2553f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "nixpkgs": "nixpkgs",
+        "servant-effectful": "servant-effectful",
+        "wai-middleware-auth": "wai-middleware-auth"
+      }
+    },
+    "servant-effectful": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1747637687,
+        "narHash": "sha256-D2lPf8pmqXPkFVlWvufw6DPC3x19zE9Ygqgiodm8+aE=",
+        "owner": "ners",
+        "repo": "servant-effectful",
+        "rev": "1720eefdbdeedaec36b67c6d84eac148fab92e1d",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ners",
+        "ref": "update",
+        "repo": "servant-effectful",
+        "type": "github"
+      }
+    },
+    "wai-middleware-auth": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1747488484,
+        "narHash": "sha256-T01i3cDdV1OPFpt7mzHrxCNdz4h3HFCccXebWXwz2kk=",
+        "owner": "ners",
+        "repo": "wai-middleware-auth",
+        "rev": "a565792ccac50e0a785d63b4de59de50cfc695bb",
+        "type": "github"
+      },
+      "original": {
+        "owner": "ners",
+        "ref": "update",
+        "repo": "wai-middleware-auth",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

@@ -1,0 +1,78 @@
+@import url("https://fonts.googleapis.com/css2?family=Open+Sans:ital,wght@0,300..800;1,300..800&display=swap");
+
+:root {
+  --text-primary: #5277c3;
+  --text-content: #585858;
+  --background-primary: #edf3ff;
+  --background-secondary: #ffffff;
+  --background-contrast: #fffaed;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body,
+html {
+  font-size: 16px;
+  font-family: "Open Sans", sans-serif;
+  font-weight: 400;
+  background: var(--background-primary);
+  color: var(--text-content);
+  @media only screen and (max-width: 500px) {
+    font-size: 16px;
+  }
+}
+
+main {
+    padding: 2em;
+}
+
+.button {
+    display: inline-block;
+    border-radius: 0.25em;
+    font-weight: 600;
+    text-decoration: none;
+    padding: 0.5em 1em;
+    &::before {
+        display: inline-block;
+        height: 1em;
+        width: 1em;
+        margin-right: 0.5em;
+        position: relative;
+        top: 0.15em;
+    }
+}
+
+.github-login.button {
+    background-color: #353C46;
+    color: #E5E7EB;
+    &::before {
+        content: "";
+        background-image: url(github.svg);
+        filter: invert(99%) sepia(9%) saturate(831%) hue-rotate(177deg) brightness(98%) contrast(88%);
+    }
+}
+
+.redeem.button {
+    background-color: #964AC0;
+    color: #FFF;
+    &::before {
+        content: "";
+        background-image: url(ticket.svg);
+        filter: brightness(0) saturate(100%) invert(100%) sepia(0%) saturate(7500%) hue-rotate(4deg) brightness(107%) contrast(110%);
+    }
+}
+
+html {
+    visibility: visible;
+    opacity: 1;
+}
+
+code {
+    background: #FFF;
+    color: var(--text-primary);
+    padding: 0.2em 0.4em;
+    border-radius: 0.25em;
+    font-weight: 500;
+}

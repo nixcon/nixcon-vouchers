@@ -1,0 +1,8 @@
+*.aes
+*.db
+*.dhall
+.direnv
+.envrc
+dist-newstyle
+result
+result-*
