@@ -23,8 +23,8 @@ data Nodes a = Nodes
     deriving anyclass (FromJSON)
 
 data PageInfo = PageInfo
-    { startCursor :: Text
-    , endCursor :: Text
+    { startCursor :: Maybe Text
+    , endCursor :: Maybe Text
     }
     deriving stock (Generic, Show, Eq)
     deriving anyclass (FromJSON)

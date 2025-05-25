@@ -8,7 +8,7 @@ import Control.Lens.Operators
 import Control.Monad.Extra (maybeM)
 import Data.Aeson (FromJSON, ToJSON (toJSON))
 import Data.Aeson qualified as Aeson
-import Data.ByteString.Lazy (LazyByteString)
+import Data.Either.Extra (mapLeft)
 import Data.Foldable qualified as Foldable
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HashMap
@@ -30,7 +30,7 @@ import Query
 import Repositories hiding (Repository)
 import Response
 import System.Environment (lookupEnv)
-import System.IO (hPutStrLn, stderr)
+import System.IO (hPutStrLn, stderr, hPrint)
 import Text.Pretty.Simple (pHPrint)
 import Prelude
 
@@ -44,14 +44,13 @@ getToken =
             (fail "You really should set GITHUB_TOKEN")
             (pure . fromString)
 
-post' :: (ToJSON a, FromJSON b) => Text -> a -> IO (Either (Wreq.Response LazyByteString) b)
+post' :: (ToJSON a, FromJSON b) => Text -> a -> IO (Either String b)
 post' token a =
     Wreq.postWith opts "https://api.github.com/graphql" (toJSON a) >>= \case
         response
-            | response ^. Wreq.responseStatus == status200
-            , Just b <- Aeson.decode $ response ^. Wreq.responseBody ->
-                pure . Right $ b
-        response -> pure . Left $ response
+            | response ^. Wreq.responseStatus == status200 ->
+                pure . mapLeft (<> "\n" <> show response) . Aeson.eitherDecode $ response ^. Wreq.responseBody
+        response -> pure . Left . show $ response
   where
     opts =
         Wreq.defaults
@@ -79,27 +78,38 @@ main :: IO ()
 main = do
     repos <-
         Foldable.fold <$> for ["NixOS", "NixCon"] \owner ->
-            post (repositories owner 100 Nothing) <&> \Response{data' = OrganizationData{organization = Organization{repositories = Nodes{nodes}}}} ->
-                nodes <&> \repo -> (owner, repo.name)
-    prs <- Foldable.fold <$> for repos \(owner, name) -> go owner name Nothing
+            post (repositories owner 100 Nothing)
+                <&> \(Response (OrganizationData (Organization Nodes{..}))) ->
+                    nodes <&> \repo -> (owner, repo.name)
+    prs <- Foldable.fold <$> for repos \(owner, name) -> do
+        hPutStrLn stderr . Text.unpack $ owner <> "/" <> name
+        go owner name Nothing
     let commitsByContributor :: HashMap (Maybe Contributor) Int
-        commitsByContributor = HashMap.fromListWith (+) . Foldable.toList $ prs <&> \pr -> (pullRequestContributor pr, pr.commits.totalCount)
-        sortedContributors = List.sortOn (negate . snd) . mapMaybe (\(k, v) -> k <&> (,v)) $ HashMap.toList commitsByContributor
+        commitsByContributor =
+            HashMap.fromListWith (+)
+                . Foldable.toList
+                $ prs <&> \pr -> (pullRequestContributor pr, pr.commits.totalCount)
+        sortedContributors =
+            List.sortOn (negate . snd)
+                . mapMaybe (\(k, v) -> k <&> (,v))
+                . HashMap.toList
+                $ commitsByContributor
     Text.writeFile "contributors.csv" . Text.unlines $
         toRow ["githubId", "githubUsername", "commits"] : (contributorRow <$> sortedContributors)
   where
     toRow = Text.intercalate ","
     contributorRow :: (Contributor, Int) -> Text
-    contributorRow (Contributor{..}, commits) = toRow $ fromString <$> [show githubId, Text.unpack githubUsername, show commits]
+    contributorRow (Contributor{..}, commits) =
+        toRow $ fromString <$> [show githubId, Text.unpack githubUsername, show commits]
     go :: Text -> Text -> Maybe Text -> IO (Seq PullRequest)
     go owner name before = do
         time <- getCurrentTime
-        Response{data' = Repository{pullRequests = Nodes{..}}} <- post $ pullRequests owner name 100 before
-        dt <- diffUTCTime <$> getCurrentTime <*> pure time
+        Response (RepositoryData (Repository Nodes{..})) <- post $ pullRequests owner name 100 before
+        dt <- flip diffUTCTime time <$> getCurrentTime
         case Seq.viewr nodes of
             _ :> pr | pr.createdAt > startDate -> do
-                pHPrint stderr (pr.createdAt, dt)
-                (<> nodes) <$> go owner name (pageInfo <&> (.startCursor))
+                hPrint stderr (pr.createdAt, dt)
+                go owner name (pageInfo >>= (.startCursor)) <&> (<> nodes)
             _ -> do
-                pHPrint stderr dt
+                hPrint stderr dt
                 pure nodes
