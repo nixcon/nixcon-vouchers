@@ -124,10 +124,12 @@ anonRoutesServer =
                                             else do
                                                 Html.p do
                                                     Html.span "Your voucher code is: "
-                                                    Html.code . fromText $ code
+                                                    Html.code
+                                                        ! Html.Attributes.id "voucher-code"
+                                                        $ fromText code
                                                     Html.button
                                                         ! Html.Attributes.class_ "copy button"
-                                                        ! Html.Attributes.onclick (fromText $ "navigator.clipboard.writeText('" <> code <> "')")
+                                                        ! Html.Attributes.onclick "navigator.clipboard.writeText(document.getElementById('voucher-code').innerText)"
                                                         $ mempty
                                                 let url = Text.intercalate "/" [eventUrl, "redeem?voucher=" <> code]
                                                 button "redeem" url "Redeem voucher"

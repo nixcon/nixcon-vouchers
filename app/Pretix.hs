@@ -17,8 +17,8 @@ import Effectful.Wreq qualified as Wreq
 import Network.HTTP.Client (ManagerSettings (managerResponseTimeout), responseTimeoutNone)
 import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (status200, status201)
-import Prelude
 import Session (Session (..))
+import Prelude
 
 data Voucher = Voucher
     { id :: Int
