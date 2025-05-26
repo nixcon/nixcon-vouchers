@@ -8,13 +8,14 @@ import Control.Lens.Operators
 import Control.Monad.Extra (maybeM)
 import Data.Aeson (FromJSON, ToJSON (toJSON))
 import Data.Aeson qualified as Aeson
+import Data.ByteString.Lazy qualified as LazyByteString
 import Data.Either.Extra (mapLeft)
 import Data.Foldable qualified as Foldable
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HashMap
 import Data.List.Extra qualified as List
 import Data.Maybe (mapMaybe)
-import Data.Sequence (Seq, ViewR ((:>)))
+import Data.Sequence (Seq ((:<|), (:|>)))
 import Data.Sequence qualified as Seq
 import Data.String (IsString (fromString))
 import Data.Text (Text)
@@ -30,12 +31,18 @@ import Query
 import Repositories hiding (Repository)
 import Response
 import System.Environment (lookupEnv)
-import System.IO (hPutStrLn, stderr, hPrint)
+import System.IO (hPrint, hPutStrLn, stderr)
 import Text.Pretty.Simple (pHPrint)
 import Prelude
 
 startDate :: UTCTime
 startDate = UTCTime (fromGregorian 2021 5 1) 0
+
+endDate :: UTCTime
+endDate = UTCTime (fromGregorian 2025 5 26) 0
+
+withinDateRange :: UTCTime -> Bool
+withinDateRange time = startDate <= time && time < endDate
 
 getToken :: IO Text
 getToken =
@@ -49,7 +56,9 @@ post' token a =
     Wreq.postWith opts "https://api.github.com/graphql" (toJSON a) >>= \case
         response
             | response ^. Wreq.responseStatus == status200 ->
-                pure . mapLeft (<> "\n" <> show response) . Aeson.eitherDecode $ response ^. Wreq.responseBody
+                let body = response ^. Wreq.responseBody
+                    showBody = Text.unpack . Text.decodeUtf8 . LazyByteString.toStrict $ body
+                 in pure . mapLeft (<> "\n" <> showBody) . Aeson.eitherDecode $ body
         response -> pure . Left . show $ response
   where
     opts =
@@ -74,6 +83,14 @@ post q = go 0
                 threadDelay 1_000_000
                 go (n + 1)
 
+headl :: Seq a -> Maybe a
+headl (x :<| _) = Just x
+headl Seq.Empty = Nothing
+
+headr :: Seq a -> Maybe a
+headr (_ :|> x) = Just x
+headr Seq.Empty = Nothing
+
 main :: IO ()
 main = do
     repos <-
@@ -81,17 +98,18 @@ main = do
             post (repositories owner 100 Nothing)
                 <&> \(Response (OrganizationData (Organization Nodes{..}))) ->
                     nodes <&> \repo -> (owner, repo.name)
-    prs <- Foldable.fold <$> for repos \(owner, name) -> do
-        hPutStrLn stderr . Text.unpack $ owner <> "/" <> name
-        go owner name Nothing
-    let commitsByContributor :: HashMap (Maybe Contributor) Int
+    prs <-
+        Foldable.fold <$> for repos \(owner, name) -> do
+            hPutStrLn stderr . Text.unpack $ owner <> "/" <> name
+            go owner name Nothing
+    let commitsByContributor :: HashMap Contributor Int
         commitsByContributor =
             HashMap.fromListWith (+)
+                . mapMaybe (\(k, v) -> k <&> (,v))
                 . Foldable.toList
                 $ prs <&> \pr -> (pullRequestContributor pr, pr.commits.totalCount)
         sortedContributors =
-            List.sortOn (negate . snd)
-                . mapMaybe (\(k, v) -> k <&> (,v))
+            List.sortOn fst
                 . HashMap.toList
                 $ commitsByContributor
     Text.writeFile "contributors.csv" . Text.unlines $
@@ -99,17 +117,17 @@ main = do
   where
     toRow = Text.intercalate ","
     contributorRow :: (Contributor, Int) -> Text
-    contributorRow (Contributor{..}, commits) =
-        toRow $ fromString <$> [show githubId, Text.unpack githubUsername, show commits]
+    contributorRow (Contributor{..}, commits) = toRow [githubId, githubUsername, ishow commits]
     go :: Text -> Text -> Maybe Text -> IO (Seq PullRequest)
     go owner name before = do
         time <- getCurrentTime
-        Response (RepositoryData (Repository Nodes{..})) <- post $ pullRequests owner name 100 before
+        Response (RepositoryData (Repository Nodes{..})) <-
+            post $ pullRequests owner name 100 before
         dt <- flip diffUTCTime time <$> getCurrentTime
-        case Seq.viewr nodes of
-            _ :> pr | pr.createdAt > startDate -> do
-                hPrint stderr (pr.createdAt, dt)
-                go owner name (pageInfo >>= (.startCursor)) <&> (<> nodes)
-            _ -> do
-                hPrint stderr dt
-                pure nodes
+        let oldest = headl nodes <&> (.createdAt)
+            newest = headr nodes <&> (.createdAt)
+            nodes' = Seq.filter (withinDateRange . (.createdAt)) nodes
+        hPrint stderr (Seq.length nodes, Seq.length nodes', oldest, newest, dt)
+        if ((startDate <) <$> oldest) == Just True
+            then go owner name (pageInfo >>= (.startCursor)) <&> (<> nodes')
+            else pure nodes'

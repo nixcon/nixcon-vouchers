@@ -6,8 +6,13 @@ query {
         createdAt
         mergedAt
         author {
-          ... on User {
+          ... on Node {
             id
+          }
+          ... on User {
+            databaseId
+          }
+          ... on Actor {
             login
           }
         }
