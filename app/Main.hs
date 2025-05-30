@@ -45,6 +45,7 @@ import Server (Env (..), optionalSessionHandler, requiredSessionHandler, server)
 import System.Exit (exitFailure)
 import Web.ClientSession (Key, getDefaultKey)
 import Prelude
+import Data.Foldable qualified as Foldable
 
 showBs :: ByteString -> Text
 showBs = either (Text.pack . show) id . Text.decodeUtf8'
@@ -131,7 +132,11 @@ main = do
         . runTime
         . runWreq
         $ do
-            voucherByCode <- HashMap.fromList . fmap (\v -> (v.code, v)) <$> getAllVouchers pretixConfig
+            voucherByCode <-
+                HashMap.fromList
+                    . Foldable.toList
+                    . fmap (\v -> (v.code, v))
+                    <$> getAllVouchers pretixConfig
             get @Contributors >>= mapM_ \contributor ->
                 let code = genVoucherCode contributor.githubId pretixConfig.voucherCodeSalt
                     voucher = HashMap.lookup code voucherByCode

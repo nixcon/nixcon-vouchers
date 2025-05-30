@@ -19,6 +19,8 @@ import Network.HTTP.Client.TLS (tlsManagerSettings)
 import Network.HTTP.Types (status200, status201)
 import Session (Session (..))
 import Prelude
+import Data.Sequence (Seq)
+import Data.Sequence qualified as Seq
 
 data Voucher = Voucher
     { id :: Int
@@ -127,21 +129,23 @@ getExistingVoucher PretixConfig{..} id' =
             , ""
             ]
 
-newtype Results a = Results {results :: [a]}
+data Results a = Results
+    { next :: Maybe Text
+    , results :: Seq a
+    }
     deriving stock (Generic)
     deriving anyclass (FromJSON)
 
-getAllVouchers :: (Log :> es, Wreq :> es) => PretixConfig -> Eff es [Voucher]
-getAllVouchers PretixConfig{..} =
-    Wreq.getWith (wreqOpts apiToken) url >>= \case
+getVouchersPage :: (Log :> es, Wreq :> es) => PretixConfig -> Int -> Eff es (Results Voucher)
+getVouchersPage PretixConfig{..} page =
+    Wreq.getWith (wreqOpts apiToken & param "page" .~ [ishow page]) url >>= \case
         response
             | response ^. Wreq.responseStatus == status200
             , Just vouchers <- Aeson.decode @(Results Voucher) $ response ^. Wreq.responseBody -> do
-                logMessage LogTrace "Fetched all vouchers" $ object ["length" .= length vouchers.results]
-                pure vouchers.results
+                pure vouchers
         response -> do
-            logMessage LogAttention "Failed to fetch all voucher" $ object ["response" .= show response]
-            pure []
+            logMessage LogAttention "Failed to fetch vouchers" $ object ["page" .= page, "response" .= show response]
+            pure Results{ next = Nothing, results = mempty }
   where
     url =
         fromText . Text.intercalate "/" $
@@ -152,3 +156,17 @@ getAllVouchers PretixConfig{..} =
             , "vouchers"
             , ""
             ]
+
+getAllVouchers :: (Log :> es, Wreq :> es) => PretixConfig -> Eff es (Seq Voucher)
+getAllVouchers config = do
+        vouchers <- go 1
+        logMessage LogTrace "Fetched all vouchers" $ object ["length" .= Seq.length vouchers]
+        pure vouchers
+    where
+        go page = do
+            Results{..} <- getVouchersPage config page
+            nextResults <-
+                case next of
+                    Nothing -> mempty
+                    Just _ -> go $ page + 1
+            pure $ results <> nextResults
