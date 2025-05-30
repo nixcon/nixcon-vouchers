@@ -8,6 +8,8 @@ import API
 import Config (PretixConfig (..))
 import Contributor
 import Control.Monad.Error.Class qualified as MonadError
+import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Maybe (MaybeT (MaybeT, runMaybeT))
 import Data.Aeson qualified as Aeson
 import Data.FileEmbed (embedDir, makeRelativeToProject)
 import Data.IntMap.Strict qualified as IntMap
@@ -103,36 +105,35 @@ anonRoutesServer =
                             button "github-login" url "Log in with GitHub"
                 Just session -> do
                     Env{pretixConfig = PretixConfig{storeUrl, event}} <- ask
-                    contributor <- getContributorWithVoucher session
+                    maybeVoucher <- getVoucher session
                     let eventUrl = Text.intercalate "/" [storeUrl, event]
                     let purchaseTicketButton = button "purchase" eventUrl
                     pure . html $ do
                         htmlHead
                         Html.body . Html.main $ do
                             Html.h1 $ "Hello " <> fromText session.githubUsername
-                            case contributor of
+                            case maybeVoucher of
                                 Nothing -> do
                                     Html.p "You are not currently eligible for a voucher."
                                     purchaseTicketButton "Purchase a ticket"
-                                Just Contributor{voucher} -> do
+                                Just Voucher{..} -> do
                                     Html.p "Thank you for your contributions to the community."
-                                    forM_ voucher \Voucher{..} ->
-                                        if redeemed > 0
-                                            then do
-                                                Html.p "Your voucher has already been redeemed."
-                                                purchaseTicketButton "Purchase another ticket"
-                                            else do
-                                                Html.p do
-                                                    Html.span "Your voucher code is: "
-                                                    Html.code
-                                                        ! Html.Attributes.id "voucher-code"
-                                                        $ fromText code
-                                                    Html.button
-                                                        ! Html.Attributes.class_ "copy button"
-                                                        ! Html.Attributes.onclick "navigator.clipboard.writeText(document.getElementById('voucher-code').innerText)"
-                                                        $ mempty
-                                                let url = Text.intercalate "/" [eventUrl, "redeem?voucher=" <> code]
-                                                button "redeem" url "Redeem voucher"
+                                    if redeemed > 0
+                                        then do
+                                            Html.p "Your voucher has already been redeemed."
+                                            purchaseTicketButton "Purchase another ticket"
+                                        else do
+                                            Html.p do
+                                                Html.span "Your voucher code is: "
+                                                Html.code
+                                                    ! Html.Attributes.id "voucher-code"
+                                                    $ fromText code
+                                                Html.button
+                                                    ! Html.Attributes.class_ "copy button"
+                                                    ! Html.Attributes.onclick "navigator.clipboard.writeText(document.getElementById('voucher-code').innerText)"
+                                                    $ mempty
+                                            let url = Text.intercalate "/" [eventUrl, "redeem?voucher=" <> code]
+                                            button "redeem" url "Redeem voucher"
         , static = serveDirectoryEmbedded $(embedDir =<< makeRelativeToProject "static")
         }
   where
@@ -165,7 +166,7 @@ anonRoutesServer =
                 ! Html.Attributes.rel "icon"
                 ! Html.Attributes.href "static/favicon.ico"
 
-getContributorWithVoucher
+getVoucher
     :: ( Reader Env :> es
        , State Contributors :> es
        , Wreq :> es
@@ -173,14 +174,12 @@ getContributorWithVoucher
        , Log :> es
        )
     => Session
-    -> Eff es (Maybe Contributor)
-getContributorWithVoucher session =
-    get <&> IntMap.lookup session.githubId >>= mapM \contributor -> do
-        Env{pretixConfig} <- ask
-        voucher <-
-            case contributor.voucher of
-                Nothing -> createNewVoucher pretixConfig session
-                Just Voucher{id} -> getExistingVoucher pretixConfig id
-        let contributor' = contributor{voucher}
-        modify $ IntMap.insert session.githubId contributor'
-        pure contributor'
+    -> Eff es (Maybe Voucher)
+getVoucher session = runMaybeT do
+    contributor <- MaybeT $ IntMap.lookup session.githubId <$> get @Contributors
+    Env{pretixConfig} <- lift ask
+    voucher <- lift $ case contributor.voucher of
+        Nothing -> createNewVoucher pretixConfig session
+        Just Voucher{id} -> getExistingVoucher pretixConfig id
+    lift . modify . setContributor $ contributor{voucher}
+    MaybeT $ pure voucher

@@ -37,8 +37,8 @@ fakeBase36 = Text.filter isAlphaNum . Text.map toUpper . extractBase64 . encodeB
 The code is hard to guess, but always the same for the same input.
 This guarantee prevents timing attacks that could generate multiple vouchers.
 -}
-genVoucherCode :: PretixConfig -> Int -> Text
-genVoucherCode PretixConfig{..} githubId =
+genVoucherCode' :: Text -> Text
+genVoucherCode' =
     Text.intercalate "-"
         . Text.chunksOf 5
         . Text.take 20
@@ -46,7 +46,9 @@ genVoucherCode PretixConfig{..} githubId =
         . convert
         . hash @ByteString @SHA256
         . fromText
-        $ voucherCodeSalt <> ishow githubId
+
+genVoucherCode :: Int -> Text -> Text
+genVoucherCode githubId salt = genVoucherCode' $ salt <> ishow githubId
 
 wreqOpts :: Text -> Wreq.Options
 wreqOpts apiToken =
@@ -61,7 +63,7 @@ wreqOpts apiToken =
             )
 
 createNewVoucher :: (Log :> es, Wreq :> es, Time :> es) => PretixConfig -> Session -> Eff es (Maybe Voucher)
-createNewVoucher pretixConfig@PretixConfig{..} Session{..} = do
+createNewVoucher PretixConfig{..} Session{..} = do
     time <- currentTime
     Wreq.postWith (wreqOpts apiToken) url (payload time) >>= \case
         response
@@ -73,7 +75,7 @@ createNewVoucher pretixConfig@PretixConfig{..} Session{..} = do
             logMessage LogAttention "Failed to create voucher" $ object ["response" .= show response]
             pure Nothing
   where
-    voucherCode = genVoucherCode pretixConfig githubId
+    voucherCode = genVoucherCode githubId voucherCodeSalt
     payload time =
         object
             [ "code" .= voucherCode

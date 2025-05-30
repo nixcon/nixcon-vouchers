@@ -115,14 +115,16 @@ executable gen
     ghc-options:      -threaded
     main-is:          Main.hs
     other-modules:
+        Config,
         Contributor,
+        Log,
         PullRequests,
         Query,
         Repositories,
         Response,
     build-depends:
         aeson,
-        base64,
+        async-pool,
         bytestring,
         containers,
         extra,
@@ -130,7 +132,9 @@ executable gen
         hashable,
         http-types,
         lens,
+        optparse-applicative,
         pretty-simple,
+        stm,
         text,
         time,
         unordered-containers,

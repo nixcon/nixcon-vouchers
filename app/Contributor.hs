@@ -1,3 +1,4 @@
+{-# LANGUAGE FieldSelectors #-}
 {-# LANGUAGE TemplateHaskell #-}
 
 module Contributor where
@@ -13,7 +14,6 @@ import Prelude
 
 data Contributor = Contributor
     { githubId :: Int
-    , githubUsername :: Text
     , commits :: Int
     , voucher :: Maybe Voucher
     }
@@ -21,18 +21,37 @@ data Contributor = Contributor
 
 type Contributors = IntMap Contributor
 
+updateContributor :: Contributor -> (Contributor -> Contributor) -> Contributors -> Contributors
+updateContributor c f = IntMap.insertWith (const f) c.githubId c
+
+setContributor :: Contributor -> Contributors -> Contributors
+setContributor c = updateContributor c $ const c
+
 contributorsFromCsv :: Int -> Contributors
-contributorsFromCsv minimumCommits =
-    IntMap.fromList
-        . filter (\(_, Contributor{commits}) -> commits >= minimumCommits)
-        . mapMaybe parseRow
-        . Text.lines
-        . Text.decodeUtf8
-        $ $(embedFile =<< makeRelativeToProject "contributors.csv")
+contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1.commits + c2.commits}) contributors organisers
   where
-    parseRow :: Text -> Maybe (Int, Contributor)
-    parseRow (Text.split (== ',') -> [treadMaybe -> Just githubId, githubUsername, treadMaybe -> Just commits]) =
-        Just (githubId, Contributor{voucher = Nothing, ..})
-    parseRow _ = Nothing
+    contributors =
+        IntMap.fromList
+            . map (\c -> (c.githubId, c))
+            . filter (\Contributor{commits} -> commits >= minimumCommits)
+            . mapMaybe parseContributor
+            . Text.lines
+            . Text.decodeUtf8
+            $ $(embedFile =<< makeRelativeToProject "contributors.csv")
+    organisers =
+        IntMap.fromList
+            . map (\c -> (c.githubId, c))
+            . mapMaybe parseOrganiser
+            . Text.lines
+            . Text.decodeUtf8
+            $ $(embedFile =<< makeRelativeToProject "contributors.csv")
+    parseContributor :: Text -> Maybe Contributor
+    parseContributor (Text.split (== ',') -> [treadMaybe -> Just githubId, _, treadMaybe -> Just commits]) =
+        Just Contributor{voucher = Nothing, ..}
+    parseContributor _ = Nothing
+    parseOrganiser :: Text -> Maybe Contributor
+    parseOrganiser (Text.split (== ',') -> [treadMaybe -> Just githubId, _]) =
+        Just Contributor{githubId, commits = 0, voucher = Nothing}
+    parseOrganiser _ = Nothing
     treadMaybe :: (Read a) => Text -> Maybe a
     treadMaybe = readMaybe . Text.unpack

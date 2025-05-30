@@ -5,7 +5,7 @@ module Main (main) where
 
 import API (Routes (Routes))
 import CliArgs (getConfig)
-import Config (Config (..), GithubConfig (..), writeConfigFile)
+import Config (Config (..), GithubConfig (..), PretixConfig (..), writeConfigFile)
 import Contributor
 import Control.Monad.Error.Class qualified as MonadError
 import Data.CaseInsensitive qualified as CI
@@ -133,9 +133,9 @@ main = do
         $ do
             voucherByCode <- HashMap.fromList . fmap (\v -> (v.code, v)) <$> getAllVouchers pretixConfig
             get @Contributors >>= mapM_ \contributor ->
-                let code = genVoucherCode pretixConfig contributor.githubId
+                let code = genVoucherCode contributor.githubId pretixConfig.voucherCodeSalt
                     voucher = HashMap.lookup code voucherByCode
-                 in modify $ IntMap.insert contributor.githubId contributor{voucher}
+                 in modify . setContributor $ contributor{voucher}
 
             let settings :: Settings
                 settings = setHost "*6" . setPort port $ defaultSettings

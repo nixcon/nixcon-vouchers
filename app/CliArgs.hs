@@ -77,7 +77,7 @@ parseCliArgs = do
     pure CliArgs{..}
 
 parserInfo :: ParserInfo CliArgs
-parserInfo = info (helper <*> parseCliArgs) (fullDesc <> progDesc "ZHF Hello server")
+parserInfo = info (helper <*> parseCliArgs) (fullDesc <> progDesc "NixCon voucher server")
 
 getConfig :: (Log :> es, IOE :> es) => Eff es (Config Identity)
 getConfig = do

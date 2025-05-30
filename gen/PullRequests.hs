@@ -7,6 +7,7 @@ import Data.Aeson (FromJSON (..))
 import Data.Aeson qualified as Aeson
 import Data.FileEmbed
 import Data.Functor ((<&>))
+import Data.List.Extra (dropSuffix)
 import Data.Text (Text)
 import Data.Text.Encoding qualified as Text
 import Data.Time (UTCTime)
@@ -14,7 +15,6 @@ import GHC.Generics (Generic)
 import Query
 import Response
 import Prelude
-import Data.List.Extra (dropSuffix)
 
 pullRequests :: Text -> Text -> Int -> Maybe Text -> Query
 pullRequests owner name count before =
