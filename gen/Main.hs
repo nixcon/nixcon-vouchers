@@ -126,13 +126,13 @@ main = do
 
     prsByRepo <- withTaskGroup 100 \group -> flip (mapConcurrently group) repos $ prsForRepo config
 
-    suspendedIds <- HashSet.fromList . Text.lines <$> Text.readFile "suspended.csv"
+    excludedIds <- HashSet.fromList . Text.lines <$> Text.readFile "excluded.csv"
 
-    let isSuspended Contributor{githubId} = HashSet.member githubId suspendedIds
+    let isExcluded Contributor{githubId} = HashSet.member githubId excludedIds
 
     let commitsByContributor :: HashMap Contributor Int
         commitsByContributor =
-            HashMap.filterWithKey (const . not . isSuspended)
+            HashMap.filterWithKey (const . not . isExcluded)
                 . HashMap.fromListWith (+)
                 . mapMaybe (\(k, v) -> k <&> (,v))
                 . Foldable.toList

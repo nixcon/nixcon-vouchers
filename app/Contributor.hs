@@ -28,7 +28,7 @@ setContributor :: Contributor -> Contributors -> Contributors
 setContributor c = updateContributor c $ const c
 
 contributorsFromCsv :: Int -> Contributors
-contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1.commits + c2.commits}) contributors organisers
+contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1.commits + c2.commits}) contributors included
   where
     contributors =
         IntMap.fromList
@@ -38,20 +38,20 @@ contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1
             . Text.lines
             . Text.decodeUtf8
             $ $(embedFile =<< makeRelativeToProject "contributors.csv")
-    organisers =
+    included =
         IntMap.fromList
             . map (\c -> (c.githubId, c))
-            . mapMaybe parseOrganiser
+            . mapMaybe parseIncluded
             . Text.lines
             . Text.decodeUtf8
-            $ $(embedFile =<< makeRelativeToProject "contributors.csv")
+            $ $(embedFile =<< makeRelativeToProject "included.csv")
     parseContributor :: Text -> Maybe Contributor
     parseContributor (Text.split (== ',') -> [treadMaybe -> Just githubId, _, treadMaybe -> Just commits]) =
         Just Contributor{voucher = Nothing, ..}
     parseContributor _ = Nothing
-    parseOrganiser :: Text -> Maybe Contributor
-    parseOrganiser (Text.split (== ',') -> [treadMaybe -> Just githubId, _]) =
+    parseIncluded :: Text -> Maybe Contributor
+    parseIncluded (Text.split (== ',') -> [treadMaybe -> Just githubId, _]) =
         Just Contributor{githubId, commits = 0, voucher = Nothing}
-    parseOrganiser _ = Nothing
+    parseIncluded _ = Nothing
     treadMaybe :: (Read a) => Text -> Maybe a
     treadMaybe = readMaybe . Text.unpack
