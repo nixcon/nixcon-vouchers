@@ -7,10 +7,10 @@ This repository contains two things:
 
 ## Eligibility criteria
 
-We consider a contributor eligible when they have made at least *a certain number* of *recent contributions* to any *official Nix project*.
+We consider a contributor eligible when they have made *recent contributions* to any *official Nix project*.
  - We count the number of *commits* in *merged* pull requests that have been *opened in the past 4 years*
  - We attribute all commits of a PR to the PR author
- - The minimum number of commits is **8**
+ - The more contributions you've made, the higher your discount will be
  - Official Nix projects are those described here: https://github.com/NixOS/org/blob/main/doc/github.md
  - Suspended contributors are removed from the list
  - NixCon organisers and others who have done significant work outside PRs are always eligible
