@@ -99,7 +99,11 @@ code {
     border-radius: 0.25em;
     font-weight: 500;
     white-space: nowrap;
-    line-height: 2;
     border-top-right-radius: 0;
     border-bottom-right-radius: 0;
+}
+
+#voucher-code-wrapper {
+    display: inline-flex;
+    flex-direction: row;
 }

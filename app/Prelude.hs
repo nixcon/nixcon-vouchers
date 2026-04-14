@@ -32,7 +32,14 @@ import Control.Lens ((.~), (?~), (^.))
 import Control.Monad
 import Control.Monad.Error.Class (MonadError)
 import Control.Monad.Extra
-import Data.Aeson (FromJSON (..), ToJSON (..), Value (..), fromJSON, genericParseJSON, genericToJSON)
+import Data.Aeson
+    ( FromJSON (..)
+    , ToJSON (..)
+    , Value (..)
+    , fromJSON
+    , genericParseJSON
+    , genericToJSON
+    )
 import Data.ByteString (ByteString)
 import Data.ByteString.Lazy (LazyByteString)
 import Data.Function ((&))

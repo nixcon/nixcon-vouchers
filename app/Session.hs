@@ -5,8 +5,6 @@ import Prelude
 data Session = Session
     { githubId :: Int
     , githubUsername :: Text
-    -- ^ The reason we store the username in the session is that the user
-    -- might not exist in the contributors table.
     }
     deriving stock (Generic)
     deriving anyclass (FromJSON, ToJSON)

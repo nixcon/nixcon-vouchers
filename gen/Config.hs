@@ -19,7 +19,10 @@ parseConfig = do
     pure Config{..}
 
 parserInfo :: ParserInfo Config
-parserInfo = info (helper <*> parseConfig) (fullDesc <> progDesc "NixCon contributor list generator")
+parserInfo =
+    info
+        (helper <*> parseConfig)
+        (fullDesc <> progDesc "NixCon contributor list generator")
 
 getConfig :: IO Config
 getConfig = execParser parserInfo

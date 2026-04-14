@@ -6,8 +6,9 @@ import Config
 import Contributor
 import Control.Concurrent (threadDelay)
 import Control.Concurrent.Async.Pool (mapConcurrently, withTaskGroup)
+import Control.Exception (SomeException, displayException, handle)
 import Control.Lens.Operators
-import Control.Monad.Extra (maybeM)
+import Control.Monad.Extra (maybeM, when)
 import Data.Aeson (FromJSON, ToJSON (toJSON))
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as LazyByteString
@@ -16,7 +17,8 @@ import Data.Foldable qualified as Foldable
 import Data.HashMap.Strict (HashMap)
 import Data.HashMap.Strict qualified as HashMap
 import Data.HashSet qualified as HashSet
-import Data.List.Extra qualified as List
+import Data.Map.Strict (Map)
+import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Sequence (Seq ((:<|), (:|>)))
 import Data.Sequence qualified as Seq
@@ -35,8 +37,10 @@ import PullRequests
 import Query
 import Repositories hiding (Repository)
 import Response
+import System.Directory.Extra (doesFileExist)
 import System.Environment (lookupEnv)
 import Text.Pretty.Simple (pShow)
+import Text.Read (readMaybe)
 import Prelude
 
 getToken :: IO Text
@@ -48,13 +52,14 @@ getToken =
 
 post' :: (ToJSON a, FromJSON b) => Text -> a -> IO (Either String b)
 post' token a =
-    Wreq.postWith opts "https://api.github.com/graphql" (toJSON a) >>= \case
-        response
-            | response ^. Wreq.responseStatus == status200 ->
-                let body = response ^. Wreq.responseBody
-                    showBody = Text.unpack . Text.decodeUtf8 . LazyByteString.toStrict $ body
-                 in pure . mapLeft (<> "\n" <> showBody) . Aeson.eitherDecode $ body
-        response -> pure . Left . show $ response
+    handle @SomeException (pure . Left . displayException) $
+        Wreq.postWith opts "https://api.github.com/graphql" (toJSON a) >>= \case
+            response
+                | response ^. Wreq.responseStatus == status200 ->
+                    let body = response ^. Wreq.responseBody
+                        showBody = Text.unpack . Text.decodeUtf8 . LazyByteString.toStrict $ body
+                     in pure . mapLeft (<> "\n" <> showBody) . Aeson.eitherDecode $ body
+            response -> pure . Left . show $ response
   where
     opts =
         Wreq.defaults
@@ -111,48 +116,102 @@ prsForRepo Config{..} (owner, name) = go Nothing
         let oldest = headl nodes <&> (.createdAt)
             newest = headr nodes <&> (.createdAt)
             prs = Seq.filter validPr nodes
-        dirtyTraceShowM (owner <> "/" <> name, Seq.length nodes, Seq.length prs, oldest, newest, dt)
+        dirtyTraceShowM
+            (owner <> "/" <> name, Seq.length nodes, Seq.length prs, oldest, newest, dt)
         olderPrs <-
             if maybe False (startDate <) oldest
                 then go $ pageInfo >>= (.startCursor)
                 else pure mempty
         pure $ olderPrs <> prs
 
+contributorHeaders :: Text
+contributorHeaders = Text.intercalate "," ["githubId", "githubUsername", "commits", "merges"]
+
+data Contributions = Contributions {commits :: Int, merges :: Int}
+    deriving stock (Show)
+
+instance Monoid Contributions where
+    mempty = Contributions{commits = 0, merges = 0}
+
+instance Semigroup Contributions where
+    c1 <> c2 =
+        Contributions
+            { commits = c1.commits + c2.commits
+            , merges = c1.merges + c2.merges
+            }
+
+contributorToRow :: (Contributor, Contributions) -> Text
+contributorToRow (Contributor{..}, Contributions{..}) =
+    Text.intercalate "," [githubId, githubUsername, ishow commits, ishow merges]
+
+tread :: (Read a) => Text -> Maybe a
+tread = readMaybe . Text.unpack
+
+contributorFromRow :: Text -> Maybe (Contributor, Contributions)
+contributorFromRow
+    ( Text.split (== ',') ->
+            [githubId, githubUsername, tread -> Just commits, tread -> Just merges]
+        ) =
+        Just (Contributor{..}, Contributions{..})
+contributorFromRow _ = Nothing
+
+getContributors :: IO (Map Contributor Contributions)
+getContributors =
+    doesFileExist file >>= \case
+        True ->
+            Map.fromList
+                . mapMaybe contributorFromRow
+                . Text.lines
+                <$> Text.readFile file
+        False -> do
+            config <- getConfig
+
+            repos <- getOfficialRepos
+
+            prsByRepo <- withTaskGroup 100 \group -> flip (mapConcurrently group) repos $ prsForRepo config
+
+            excludedIds <- HashSet.fromList . Text.lines <$> Text.readFile "excluded.csv"
+
+            let isExcluded Contributor{githubId} = HashSet.member githubId excludedIds
+
+            let commitsByContributor :: HashMap Contributor Int
+                commitsByContributor =
+                    HashMap.filterWithKey (const . not . isExcluded)
+                        . HashMap.fromListWith (+)
+                        . mapMaybe (\(k, v) -> k <&> (,v))
+                        . Foldable.toList
+                        . Foldable.foldMap (fmap \pr -> (pullRequestAuthor pr, pr.commits.totalCount))
+                        $ prsByRepo
+
+            let mergesByContributor :: HashMap Contributor Int
+                mergesByContributor =
+                    HashMap.filterWithKey (const . not . isExcluded)
+                        . HashMap.fromListWith (+)
+                        . mapMaybe (<&> (,1))
+                        . Foldable.toList
+                        . Foldable.foldMap (fmap pullRequestMergedBy)
+                        $ prsByRepo
+
+            let sortedContributors :: Map Contributor Contributions
+                sortedContributors =
+                    Map.fromListWith (<>) $
+                        ( HashMap.toList commitsByContributor <&> \(c, commits) -> (c, mempty{Main.commits})
+                        )
+                            <> (HashMap.toList mergesByContributor <&> \(c, merges) -> (c, mempty{merges}))
+
+            time <- getCurrentTime
+
+            Text.writeFile file . Text.unlines $
+                ("# generated on " <> ishow time <> " with " <> ishow config)
+                    : contributorHeaders
+                    : (contributorToRow <$> Map.toList sortedContributors)
+
+            pure sortedContributors
+  where
+    file :: FilePath
+    file = "contributors.csv"
+
 main :: IO ()
 main = do
-    config <- getConfig
-
-    repos <- getOfficialRepos
-
-    prsByRepo <- withTaskGroup 100 \group -> flip (mapConcurrently group) repos $ prsForRepo config
-
-    excludedIds <- HashSet.fromList . Text.lines <$> Text.readFile "excluded.csv"
-
-    let isExcluded Contributor{githubId} = HashSet.member githubId excludedIds
-
-    let commitsByContributor :: HashMap Contributor Int
-        commitsByContributor =
-            HashMap.filterWithKey (const . not . isExcluded)
-                . HashMap.fromListWith (+)
-                . mapMaybe (\(k, v) -> k <&> (,v))
-                . Foldable.toList
-                . Foldable.foldMap (fmap \pr -> (pullRequestContributor pr, pr.commits.totalCount))
-                $ prsByRepo
-
-    let sortedContributors :: [(Contributor, Int)]
-        sortedContributors =
-            List.sortOn fst
-                . HashMap.toList
-                $ commitsByContributor
-
-    time <- getCurrentTime
-
-    Text.writeFile "contributors.csv" . Text.unlines $
-        let
-            toRow = Text.intercalate ","
-            contributorRow :: (Contributor, Int) -> Text
-            contributorRow (Contributor{..}, commits) = toRow [githubId, githubUsername, ishow commits]
-         in
-            ("# generated on " <> ishow time <> " with " <> ishow config)
-                : toRow ["githubId", "githubUsername", "commits"]
-                : (contributorRow <$> sortedContributors)
+    contributors <- getContributors
+    when (Map.null contributors) $ error "empty contributors"

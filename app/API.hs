@@ -14,7 +14,12 @@ import Prelude hiding ((:>))
 type API = ToServantApi Routes
 
 data Routes route = Routes
-    { authGithub :: route :- AuthProtect Github :> "auth" :> "github" :> NamedRoutes (OAuth2Routes OAuth2Result)
+    { authGithub
+        :: route
+            :- AuthProtect Github
+                :> "auth"
+                :> "github"
+                :> NamedRoutes (OAuth2Routes OAuth2Result)
     , anonRoutes :: route :- AuthProtect "optional-session" :> NamedRoutes AnonRoutes
     }
     deriving stock (Generic)

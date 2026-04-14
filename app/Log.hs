@@ -13,7 +13,13 @@ instance Enum LogLevel where
     toEnum 2 = LogTrace
     toEnum _ = undefined
 
-tryLogged :: forall es a. (Log :> es) => Text -> Text -> (Eff es) a -> (Eff es) a
+tryLogged
+    :: forall es a
+     . (Log :> es)
+    => Text
+    -> Text
+    -> (Eff es) a
+    -> (Eff es) a
 tryLogged goodMessage badMessage = either logBad logGood <=< try @SomeException
   where
     logBad :: SomeException -> Eff es a

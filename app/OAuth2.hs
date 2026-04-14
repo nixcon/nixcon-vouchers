@@ -15,7 +15,14 @@ import Network.OAuth.OAuth2 qualified as OA2
 import Network.Wai.Auth.Internal (decodeToken)
 import Network.Wai.Middleware.Auth.OAuth2 (OAuth2 (..))
 import Network.Wai.Middleware.Auth.Provider (AuthProvider (..))
-import Servant (Header, Headers, ServerError, WithStatus (..), addHeader, respond)
+import Servant
+    ( Header
+    , Headers
+    , ServerError
+    , WithStatus (..)
+    , addHeader
+    , respond
+    )
 import Servant.OAuth2 (OAuth2Settings (..), defaultOAuth2Settings)
 import Servant.OAuth2.Cookies (buildSessionCookie)
 import Session
@@ -33,9 +40,13 @@ data Github = Github
 
 -- Maybe this works if the domain does not contain a port?
 -- type OAuth2Result = '[WithStatus 302 RedirectWithCookie]
-type OAuth2Result = '[WithStatus 200 (Headers '[Header "Set-Cookie" SetCookie] Html)]
+type OAuth2Result =
+    '[WithStatus 200 (Headers '[Header "Set-Cookie" SetCookie] Html)]
 
-mkGithubSettings :: Key -> Github -> OAuth2Settings (Eff '[Error ServerError, IOE]) Github OAuth2Result
+mkGithubSettings
+    :: Key
+    -> Github
+    -> OAuth2Settings (Eff '[Error ServerError, IOE]) Github OAuth2Result
 mkGithubSettings key github =
     (defaultOAuth2Settings @(Eff '[Error ServerError, IOE]) github)
         { success = \_req ident -> do
@@ -44,8 +55,12 @@ mkGithubSettings key github =
             -- <head><meta http-equiv="refresh" content="0; url=/"></head>
             -- Why aren't we using status code 303 with Location header?
             -- Because the browser stores the Set-Cookie for future requests, but *does not redirect with it*.
-            respond . WithStatus @200 . addHeader @"Set-Cookie" cookie . html . Text.Blaze.Html5.head $
-                meta ! httpEquiv "refresh" ! content "0; url=/"
+            respond
+                . WithStatus @200
+                . addHeader @"Set-Cookie" cookie
+                . html
+                . Text.Blaze.Html5.head
+                $ meta ! httpEquiv "refresh" ! content "0; url=/"
         }
 
 data GithubUser = GithubUser
@@ -55,16 +70,22 @@ data GithubUser = GithubUser
     deriving stock (Generic, Show)
 
 instance ToJSON GithubUser where
-    toJSON = genericToJSON Aeson.defaultOptions{Aeson.fieldLabelModifier = Aeson.camelTo2 '_'}
+    toJSON =
+        genericToJSON
+            Aeson.defaultOptions{Aeson.fieldLabelModifier = Aeson.camelTo2 '_'}
 
 instance FromJSON GithubUser where
-    parseJSON = genericParseJSON Aeson.defaultOptions{Aeson.fieldLabelModifier = Aeson.camelTo2 '_'}
+    parseJSON =
+        genericParseJSON
+            Aeson.defaultOptions{Aeson.fieldLabelModifier = Aeson.camelTo2 '_'}
 
 -- | Makes an API call to github and retrieves the authenticated user
 getUser :: (Wreq :> es) => OAuth2Token -> Eff es (Maybe GithubUser)
 getUser accessToken =
     Wreq.getWith opts "https://api.github.com/user" >>= \case
-        response | response ^. Wreq.responseStatus == status200 -> pure . Aeson.decode $ response ^. Wreq.responseBody
+        response
+            | response ^. Wreq.responseStatus == status200 ->
+                pure . Aeson.decode $ response ^. Wreq.responseBody
         _ -> pure Nothing
   where
     opts =
@@ -80,7 +101,20 @@ instance AuthProvider Github where
     handleLogin Github{oauth2} req suffix renderUrl onSuccess onFailure = handleLogin oauth2 req suffix renderUrl onOAuth2Success onFailure
       where
         onOAuth2Success oauth2Token =
-            either (onFailure status501) (onSuccess . LazyByteString.toStrict . Aeson.encode) =<< runExceptT do
-                token <- except . mapLeft (("Error decoding OAuth2 token: " <>) . fromString . show) . decodeToken $ oauth2Token
-                user <- maybeToExceptT "Failed to authenticate with GitHub" . MaybeT . runEff . runWreq . getUser $ token
-                pure Session{githubId = user.id, githubUsername = user.login}
+            either
+                (onFailure status501)
+                (onSuccess . LazyByteString.toStrict . Aeson.encode)
+                =<< runExceptT do
+                    token <-
+                        except
+                            . mapLeft (("Error decoding OAuth2 token: " <>) . fromString . show)
+                            . decodeToken
+                            $ oauth2Token
+                    user <-
+                        maybeToExceptT "Failed to authenticate with GitHub"
+                            . MaybeT
+                            . runEff
+                            . runWreq
+                            . getUser
+                            $ token
+                    pure Session{githubId = user.id, githubUsername = user.login}

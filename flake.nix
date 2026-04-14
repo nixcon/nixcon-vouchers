@@ -7,11 +7,11 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     servant-effectful = {
-      url = "github:ners/servant-effectful/update";
+      url = "github:Kleidukos/servant-effectful";
       flake = false;
     };
     wai-middleware-auth = {
-      url = "github:ners/wai-middleware-auth/update";
+      url = "github:ners/wai-middleware-auth";
       flake = false;
     };
   };
@@ -26,20 +26,6 @@
         else throw "foreach: expected list or attrset but got ${typeOf xs}"
       );
       pname = "nixcon-vouchers";
-      ghcsFor = pkgs: with lib; foldlAttrs
-        (acc: name: hp:
-          let
-            version = getVersion hp.ghc;
-            majorMinor = versions.majorMinor version;
-            ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
-          in
-          if hp ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.2" && versionOlder version "9.11"
-          then acc // { ${ghcName} = hp; }
-          else acc
-        )
-        { }
-        pkgs.haskell.packages;
-      hpsFor = pkgs: { default = pkgs.haskellPackages; } // ghcsFor pkgs;
       overlay = lib.composeManyExtensions [
         (final: prev: {
           haskell = prev.haskell // {
@@ -63,10 +49,22 @@
       (system: pkgs':
         let
           pkgs = pkgs'.extend overlay;
-          hps = hpsFor pkgs;
+          hps = with lib; foldlAttrs
+            (acc: name: hp':
+              let
+                hp = tryEval hp';
+                version = getVersion hp.value.ghc;
+                majorMinor = versions.majorMinor version;
+                ghcName = "ghc${replaceStrings ["."] [""] majorMinor}";
+              in
+              if hp.value ? ghc && ! acc ? ${ghcName} && versionAtLeast version "9.4" && versionOlder version "9.13"
+              then acc // { ${ghcName} = hp.value; }
+              else acc
+            )
+            { default = pkgs.haskellPackages; }
+            pkgs.haskell.packages;
         in
         {
-          formatter.${system} = pkgs.nixpkgs-fmt;
           legacyPackages.${system} = pkgs;
           packages.${system}.default = hps.default.${pname};
           devShells.${system} =
@@ -75,12 +73,16 @@
                 packages = ps: [ hp.${pname} ];
                 nativeBuildInputs = with pkgs; [
                   dhall-lsp-server
+                  haskellPackages.cabal-gild
                   haskellPackages.cabal-install
-                  hp.fourmolu
+                  haskellPackages.fourmolu
                   hp.haskell-language-server
+                  nixpkgs-fmt
+                  treefmt
                 ];
               };
             });
+          formatter.${system} = pkgs.treefmt;
         }
       ) // {
       overlays.default = overlay;
@@ -89,9 +91,8 @@
           cfg = config.services.nixcon-contributor-verify;
         in
         {
-          options = {};
-          config = lib.mkIf cfg.enable {
-          };
+          options = { };
+          config = lib.mkIf cfg.enable { };
         };
     };
 }

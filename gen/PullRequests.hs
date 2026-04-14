@@ -6,7 +6,6 @@ import Contributor (Contributor (..))
 import Data.Aeson (FromJSON (..))
 import Data.Aeson qualified as Aeson
 import Data.FileEmbed
-import Data.Functor ((<&>))
 import Data.List.Extra (dropSuffix)
 import Data.Text (Text)
 import Data.Text.Encoding qualified as Text
@@ -30,29 +29,37 @@ pullRequests owner name count before =
                 $ $(embedFile =<< makeRelativeToProject "gen/pullRequests.gql")
         }
 
-pullRequestContributor :: PullRequest -> Maybe Contributor
-pullRequestContributor PullRequest{author} =
-    author <&> \Author{..} ->
-        Contributor
-            { githubId = maybe id' ishow databaseId
-            , githubUsername = login
-            }
+actorToContributor :: Actor -> Contributor
+actorToContributor Actor{..} =
+    Contributor
+        { githubId = maybe id' ishow databaseId
+        , githubUsername = login
+        }
 
-data Author = Author
+pullRequestAuthor :: PullRequest -> Maybe Contributor
+pullRequestAuthor PullRequest{author} = actorToContributor <$> author
+
+pullRequestMergedBy :: PullRequest -> Maybe Contributor
+pullRequestMergedBy PullRequest{mergedBy} = actorToContributor <$> mergedBy
+
+data Actor = Actor
     { id' :: Text
     , databaseId :: Maybe Int
     , login :: Text
     }
     deriving stock (Generic, Show, Eq)
 
-instance FromJSON Author where
-    parseJSON = Aeson.genericParseJSON Aeson.defaultOptions{Aeson.fieldLabelModifier = dropSuffix "'"}
+instance FromJSON Actor where
+    parseJSON =
+        Aeson.genericParseJSON
+            Aeson.defaultOptions{Aeson.fieldLabelModifier = dropSuffix "'"}
 
 data PullRequest = PullRequest
     { number :: Int
     , createdAt :: UTCTime
     , mergedAt :: Maybe UTCTime
-    , author :: Maybe Author
+    , author :: Maybe Actor
+    , mergedBy :: Maybe Actor
     , commits :: TotalCount
     }
     deriving stock (Generic, Show, Eq)
