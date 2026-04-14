@@ -21,19 +21,27 @@ data Contributor = Contributor
 
 type Contributors = IntMap Contributor
 
-updateContributor :: Contributor -> (Contributor -> Contributor) -> Contributors -> Contributors
+updateContributor
+    :: Contributor
+    -> (Contributor -> Contributor)
+    -> Contributors
+    -> Contributors
 updateContributor c f = IntMap.insertWith (const f) c.githubId c
 
 setContributor :: Contributor -> Contributors -> Contributors
 setContributor c = updateContributor c $ const c
 
-contributorsFromCsv :: Int -> Contributors
-contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1.commits + c2.commits}) contributors included
+contributorsFromCsv :: Contributors
+contributorsFromCsv =
+    IntMap.unionWith
+        (\c1 c2 -> c1{commits = c1.commits + c2.commits})
+        contributors
+        included
   where
     contributors =
         IntMap.fromList
             . map (\c -> (c.githubId, c))
-            . filter (\Contributor{commits} -> commits >= minimumCommits)
+            . filter (\Contributor{commits} -> commits >= 1)
             . mapMaybe parseContributor
             . Text.lines
             . Text.decodeUtf8
@@ -46,12 +54,15 @@ contributorsFromCsv minimumCommits = IntMap.unionWith (\c1 c2 -> c1{commits = c1
             . Text.decodeUtf8
             $ $(embedFile =<< makeRelativeToProject "included.csv")
     parseContributor :: Text -> Maybe Contributor
-    parseContributor (Text.split (== ',') -> [treadMaybe -> Just githubId, _, treadMaybe -> Just commits]) =
-        Just Contributor{voucher = Nothing, ..}
+    parseContributor
+        ( Text.split (== ',') ->
+                [treadMaybe -> Just githubId, _, treadMaybe -> Just commits, _]
+            ) =
+            Just Contributor{voucher = Nothing, ..}
     parseContributor _ = Nothing
     parseIncluded :: Text -> Maybe Contributor
     parseIncluded (Text.split (== ',') -> [treadMaybe -> Just githubId, _]) =
-        Just Contributor{githubId, commits = 0, voucher = Nothing}
+        Just Contributor{githubId, commits = maxBound, voucher = Nothing}
     parseIncluded _ = Nothing
     treadMaybe :: (Read a) => Text -> Maybe a
     treadMaybe = readMaybe . Text.unpack

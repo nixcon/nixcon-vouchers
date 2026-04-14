@@ -35,6 +35,7 @@ data PretixConfig = PretixConfig
     , apiToken :: Text
     , storeUrl :: Text
     , voucherItem :: Int
+    , voucherVariation :: Maybe Int
     , voucherCodeSalt :: Text
     }
     deriving stock (Generic)
@@ -46,7 +47,6 @@ data Config m = Config
     , githubConfig :: m GithubConfig
     , pretixConfig :: m PretixConfig
     , sessionKey :: m Key
-    , minimumCommits :: m Int
     }
     deriving stock (Generic)
 
@@ -89,7 +89,11 @@ readConfigFile path =
         . inputFile auto
         $ path
 
-writeConfigFile :: (Log :> es, IOE :> es) => FilePath -> Config Identity -> Eff es ()
+writeConfigFile
+    :: (Log :> es, IOE :> es)
+    => FilePath
+    -> Config Identity
+    -> Eff es ()
 writeConfigFile path config = do
     liftIO
         . Text.writeFile path
@@ -113,7 +117,6 @@ maybeConfig config = do
     githubConfig <- pure <$> config.githubConfig
     pretixConfig <- pure <$> config.pretixConfig
     sessionKey <- pure <$> config.sessionKey
-    minimumCommits <- pure <$> config.minimumCommits
     pure Config{..}
 
 overrideConfig :: Config Maybe -> Config Identity -> Config Identity
@@ -124,5 +127,4 @@ overrideConfig new Config{..} =
         , githubConfig = maybe githubConfig pure new.githubConfig
         , pretixConfig = maybe pretixConfig pure new.pretixConfig
         , sessionKey = maybe sessionKey pure new.sessionKey
-        , minimumCommits = maybe minimumCommits pure new.minimumCommits
         }

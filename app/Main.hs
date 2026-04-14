@@ -5,11 +5,17 @@ module Main (main) where
 
 import API (Routes (Routes))
 import CliArgs (getConfig)
-import Config (Config (..), GithubConfig (..), PretixConfig (..), writeConfigFile)
+import Config
+    ( Config (..)
+    , GithubConfig (..)
+    , PretixConfig (..)
+    , writeConfigFile
+    )
 import Contributor
 import Control.Monad.Error.Class qualified as MonadError
 import Data.CaseInsensitive qualified as CI
 import Data.Foldable (for_)
+import Data.Foldable qualified as Foldable
 import Data.HashMap.Strict qualified as HashMap
 import Data.IntMap.Strict qualified as IntMap
 import Data.IntSet qualified as IntSet
@@ -45,7 +51,6 @@ import Server (Env (..), optionalSessionHandler, requiredSessionHandler, server)
 import System.Exit (exitFailure)
 import Web.ClientSession (Key, getDefaultKey)
 import Prelude
-import Data.Foldable qualified as Foldable
 
 showBs :: ByteString -> Text
 showBs = either (Text.pack . show) id . Text.decodeUtf8'
@@ -85,7 +90,7 @@ logMiddleware loggerEnv app req respond' = do
                 ]
         respond' res
 
-instance (Show e) => MonadError e (Eff (Error e ': es)) where
+instance {-# OVERLAPPING #-} (Show e) => MonadError e (Eff (Error e ': es)) where
     throwError = throwError
     catchError e = catchError e . const
 
@@ -97,7 +102,6 @@ main = do
         , githubConfig = Identity GithubConfig{..}
         , pretixConfig = Identity pretixConfig
         , sessionKey = Identity sessionKey
-        , minimumCommits = Identity minimumCommits
         } <- withStdOutLogger \logger -> runEff . runLog "nixcon-vouchers" logger LogInfo $ getConfig
     let githubSettings =
             mkGithubSettings
@@ -128,7 +132,7 @@ main = do
     withStdOutLogger \logger -> runEff
         . runLog "nixcon-vouchers" logger logLevel
         . runReader initialEnv
-        . evalState (contributorsFromCsv minimumCommits)
+        . evalState contributorsFromCsv
         . runTime
         . runWreq
         $ do
@@ -149,7 +153,8 @@ main = do
                         :. optionalSessionHandler sessionKey
                         :. oauth2AuthHandler githubSettings (MkHandler . runEff . runErrorNoCallStack)
                         :. EmptyContext
-            logMessage LogInfo ("Server listening on http://localhost:" <> ishow port) $ object []
+            logMessage LogInfo ("Server listening on http://localhost:" <> ishow port) $
+                object []
             loggerEnv <- getLoggerEnv
             let middleware = logMiddleware loggerEnv
             runWarpServerSettingsContext settings context server middleware

@@ -4,8 +4,19 @@ query {
       nodes {
         number
         createdAt
-        mergedAt
         author {
+          ... on Node {
+            id
+          }
+          ... on User {
+            databaseId
+          }
+          ... on Actor {
+            login
+          }
+        }
+        mergedAt
+        mergedBy {
           ... on Node {
             id
           }

@@ -27,6 +27,7 @@ parsePretixConfig = do
     apiToken <- strOption $ long "pretix-api-token"
     storeUrl <- option auto $ long "pretix-store-url"
     voucherItem <- option auto $ long "pretix-voucher-item"
+    voucherVariation <- option auto $ long "pretix-voucher-variation"
     voucherCodeSalt <- strOption $ long "pretix-voucher-code-salt"
     pure PretixConfig{..}
 
@@ -43,7 +44,8 @@ parseConfig = do
             . option (eitherReader $ readLogLevelEither . fromString)
             $ long "log-level"
                 <> metavar "LOG_LEVEL"
-                <> help ("Verbosity of the program. Possible values: " <> List.intercalate "," logLevels)
+                <> help
+                    ("Verbosity of the program. Possible values: " <> List.intercalate "," logLevels)
                 <> completeWith logLevels
     githubConfig <- optional parseGithubConfig
     pretixConfig <- optional parsePretixConfig
@@ -51,10 +53,8 @@ parseConfig = do
         optional . option (eitherReader $ first fromText . decodeKey . fromString) $
             long "session-key"
                 <> metavar "KEY"
-                <> help "The key used to encrypt session cookies. Base64-encoded and exactly 96 bytes long."
-    minimumCommits <-
-        optional . option auto $
-            long "commits" <> help "The minimal number of commits a contributor must have."
+                <> help
+                    "The key used to encrypt session cookies. Base64-encoded and exactly 96 bytes long."
     pure Config{..}
   where
     logLevels :: [String]
