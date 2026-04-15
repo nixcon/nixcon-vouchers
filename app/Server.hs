@@ -157,6 +157,46 @@ anonRoutesServer =
                                 _ -> do
                                     Html.p "You are not currently eligible for a voucher."
                                     purchaseTicketButton "Purchase a ticket"
+                            Html.hr
+                            Html.h3 "Voucher FAQ"
+                            Html.h4 "Can I give my voucher to somebody else?"
+                            Html.p
+                                "Yes! You can give your voucher to anyone of your choosing, regardless of whether they are a contributor, or whether you plan to buy a ticket or not."
+                            Html.p "Thank you for spreading the Nix love!"
+                            Html.h4 "I made some commits/merges, but the site still says I'm not eligible or not increasing my discount. What gives?"
+                            Html.p "Note that we only count contributions made in the 4 years up to the month the ticket sales opened."
+                            Html.p "These numbers will not be refreshed until the next NixCon, to remove the temptation of opening low-quality PRs to game the system."
+                            Html.p do
+                                "See the "
+                                Html.a
+                                    ! Html.Attributes.href "https://github.com/nixcon/nixcon-vouchers/blob/main/contributors.csv"
+                                    $ "source code repository"
+                                " for the exact numbers."
+                            Html.h4 do
+                                "Can I ask for an exception? An increase in voucher percentage? Can I get a voucher even though I am not eligible for one? A "
+                                Html.em "second"
+                                " voucher??"
+                            Html.p do
+                                "We have a system in place to handle requests for exceptions that is similar to the SC elections. Send us an email at "
+                                Html.a
+                                    ! Html.Attributes.href "mailto:nixcon@nixos.org"
+                                    $ "nixcon@nixos.org"
+                                " to explain your situation in as much detail as you can."
+                            Html.p
+                                "Please note that vouchers are designed to reward contributions to the Nix community. As such, we will ask you to present relevant work or volunteering efforts in the community when requesting an exception."
+                            Html.p do
+                                "We are very happy to make exceptions for members of the "
+                                Html.a
+                                    ! Html.Attributes.href "https://nixos.org/community/"
+                                    $ "community teams"
+                                "."
+                            Html.h4
+                                "My budget is tight this year. Is there any other help available other than vouchers?"
+                            Html.p
+                                "NixCon also runs on a tight budget. We rely on the goodwill of sponsors and supporters. As such we cannot promise too much until we have secured sponsorships and sold some tickets."
+                            Html.p
+                                "If the supporters and sponsors are generous and we have a budget surplus, we will be happy to offer stipends to relieve some of the burden of travel and accommodation to our attendees."
+                            Html.p "Please check with us closer to the event date."
         , static = serveDirectoryEmbedded $(embedDir =<< makeRelativeToProject "static")
         }
   where
