@@ -80,12 +80,14 @@ createNewVoucher percent PretixConfig{..} Session{..} = do
         response
             | response ^. Wreq.responseStatus == status201
             , Just voucher <- Aeson.decode $ response ^. Wreq.responseBody -> do
-                logMessage LogTrace "Created new voucher" $
-                    object ["id" .= voucher.id, "code" .= voucher.code]
+                logMessage LogTrace "Created new voucher" $ toJSON voucher
                 pure . Just $ voucher
         response -> do
             logMessage LogAttention "Failed to create voucher" $
-                object ["response" .= show response]
+                object
+                    [ "request" .= payload time
+                    , "response" .= show response
+                    ]
             pure Nothing
   where
     voucherCode = genVoucherCode githubId voucherCodeSalt
